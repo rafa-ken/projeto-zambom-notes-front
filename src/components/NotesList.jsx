@@ -14,6 +14,8 @@ export default function NotesList({ notes = [], loading, onUpdate, onDelete }) {
   async function save() {
     await onUpdate(editingId, { title, content })
     setEditingId(null)
+    setTitle('')
+    setContent('')
   }
 
   if (loading) return <p>Carregando notas...</p>

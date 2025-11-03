@@ -18,20 +18,19 @@ export default function App() {
   async function fetchNotes() {
     setLoadingNotes(true)
     try {
+      // only request token if authenticated
+      if (!isAuthenticated) throw new Error('Not authenticated')
       const token = await getAccessTokenSilently()
       const data = await apiFetch('/notes', { token })
       setNotes(data)
     } catch (err) {
-      console.error(err)
+      console.error('fetchNotes error', err)
       if (err?.status === 401) {
-        try {
-          await loginWithRedirect()
-        } catch (e) {
-          console.error('login redirect failed', e)
-        }
+        try { await loginWithRedirect() } catch (e) { console.error('login redirect failed', e) }
         return
       }
-      alert('Erro ao carregar notas. Verifique o console.')
+      // user facing
+      alert('Erro ao carregar notas. Veja console para detalhes.')
     } finally {
       setLoadingNotes(false)
     }
@@ -39,38 +38,44 @@ export default function App() {
 
   async function createNote(payload) {
     try {
+      if (!isAuthenticated) return loginWithRedirect()
       const token = await getAccessTokenSilently()
       const note = await apiFetch('/notes', { method: 'POST', token, body: payload })
       setNotes(prev => [note, ...prev])
     } catch (err) {
-      console.error(err)
+      console.error('createNote error', err)
       if (err?.status === 401) return loginWithRedirect()
-      alert('Erro ao criar nota')
+      if (err?.status === 403) return alert('Você não tem permissão para criar notas.')
+      alert('Erro ao criar nota.')
     }
   }
 
   async function updateNote(id, payload) {
     try {
+      if (!isAuthenticated) return loginWithRedirect()
       const token = await getAccessTokenSilently()
       const updated = await apiFetch(`/notes/${id}`, { method: 'PUT', token, body: payload })
       setNotes(prev => prev.map(n => (n.id === id ? updated : n)))
     } catch (err) {
-      console.error(err)
+      console.error('updateNote error', err)
       if (err?.status === 401) return loginWithRedirect()
-      alert('Erro ao atualizar nota')
+      if (err?.status === 403) return alert('Você não tem permissão para atualizar notas.')
+      alert('Erro ao atualizar nota.')
     }
   }
 
   async function deleteNote(id) {
     if (!confirm('Confirma excluir esta nota?')) return
     try {
+      if (!isAuthenticated) return loginWithRedirect()
       const token = await getAccessTokenSilently()
       await apiFetch(`/notes/${id}`, { method: 'DELETE', token })
       setNotes(prev => prev.filter(n => n.id !== id))
     } catch (err) {
-      console.error(err)
+      console.error('deleteNote error', err)
       if (err?.status === 401) return loginWithRedirect()
-      alert('Erro ao deletar nota')
+      if (err?.status === 403) return alert('Você não tem permissão para deletar notas.')
+      alert('Erro ao deletar nota.')
     }
   }
 
