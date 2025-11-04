@@ -20,7 +20,6 @@ button:hover { opacity:0.95 }
   color: #2e7d32;
 }
 .notes input, .notes textarea {
-  maxlength: 1000;
   font-family: Arial, sans-serif;
 }
 
@@ -35,7 +34,6 @@ button:hover { opacity:0.95 }
   color: #c62828;
 }
 .tasks input, .tasks textarea {
-  max-length: 200;
   font-family: "Courier New", monospace;
 }
 
@@ -50,7 +48,6 @@ button:hover { opacity:0.95 }
   color: #1565c0;
 }
 .reports input, .reports textarea {
-  max-length: 500;
   font-family: Georgia, serif;
 }
 
