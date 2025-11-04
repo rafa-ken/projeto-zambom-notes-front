@@ -2,45 +2,61 @@ import React, { useState, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import NotesList from './components/NotesList'
 import NoteForm from './components/NoteForm'
-import { apiFetch } from './api'
+import ReportsList from './components/ReportsList'
+import ReportForm from './components/ReportForm'
+import TasksList from './components/TasksList'
+import TaskForm from './components/TaskForm'
+import { serviceFetch } from './api'
 
 export default function App() {
   const { loginWithRedirect, logout, isAuthenticated, user, getAccessTokenSilently, isLoading } = useAuth0()
+
   const [notes, setNotes] = useState([])
-  const [loadingNotes, setLoadingNotes] = useState(false)
+  const [reports, setReports] = useState([])
+  const [tasks, setTasks] = useState([])
+
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated) fetchNotes()
-    else setNotes([])
+    if (isAuthenticated) fetchAll()
+    else {
+      setNotes([]); setReports([]); setTasks([])
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated])
 
-  async function fetchNotes() {
-    setLoadingNotes(true)
+  async function fetchAll() {
+    setLoading(true)
     try {
-      // only request token if authenticated
       if (!isAuthenticated) throw new Error('Not authenticated')
       const token = await getAccessTokenSilently()
-      const data = await apiFetch('/notes', { token })
-      setNotes(data)
+      // fetch all in parallel
+      const [notesData, reportsData, tasksData] = await Promise.all([
+        serviceFetch('notes', '/notes', { token }),
+        serviceFetch('reports', '/reports', { token }),
+        serviceFetch('tasks', '/tarefas', { token })
+      ])
+      setNotes(notesData || [])
+      setReports(reportsData || [])
+      setTasks(tasksData || [])
     } catch (err) {
-      console.error('fetchNotes error', err)
+      console.error('fetchAll error', err)
       if (err?.status === 401) {
         try { await loginWithRedirect() } catch (e) { console.error('login redirect failed', e) }
         return
       }
-      // user facing
-      alert('Erro ao carregar notas. Veja console para detalhes.')
+      alert('Erro ao carregar dados. Veja console.')
     } finally {
-      setLoadingNotes(false)
+      setLoading(false)
     }
   }
 
+  // -------- Notes handlers (mesmo comportamento anterior) ----------
   async function createNote(payload) {
     try {
       if (!isAuthenticated) return loginWithRedirect()
       const token = await getAccessTokenSilently()
-      const note = await apiFetch('/notes', { method: 'POST', token, body: payload })
+      const note = await serviceFetch('notes', '/notes', { method: 'POST', token, body: payload })
       setNotes(prev => [note, ...prev])
     } catch (err) {
       console.error('createNote error', err)
@@ -49,34 +65,78 @@ export default function App() {
       alert('Erro ao criar nota.')
     }
   }
-
   async function updateNote(id, payload) {
     try {
-      if (!isAuthenticated) return loginWithRedirect()
       const token = await getAccessTokenSilently()
-      const updated = await apiFetch(`/notes/${id}`, { method: 'PUT', token, body: payload })
+      const updated = await serviceFetch('notes', `/notes/${id}`, { method: 'PUT', token, body: payload })
       setNotes(prev => prev.map(n => (n.id === id ? updated : n)))
-    } catch (err) {
-      console.error('updateNote error', err)
-      if (err?.status === 401) return loginWithRedirect()
-      if (err?.status === 403) return alert('Você não tem permissão para atualizar notas.')
-      alert('Erro ao atualizar nota.')
-    }
+    } catch (err) { console.error(err); if (err?.status === 401) return loginWithRedirect(); alert('Erro ao atualizar nota.') }
   }
-
   async function deleteNote(id) {
     if (!confirm('Confirma excluir esta nota?')) return
     try {
-      if (!isAuthenticated) return loginWithRedirect()
       const token = await getAccessTokenSilently()
-      await apiFetch(`/notes/${id}`, { method: 'DELETE', token })
+      await serviceFetch('notes', `/notes/${id}`, { method: 'DELETE', token })
       setNotes(prev => prev.filter(n => n.id !== id))
+    } catch (err) { console.error(err); if (err?.status === 401) return loginWithRedirect(); alert('Erro ao deletar nota.') }
+  }
+
+  // -------- Reports handlers ----------
+  async function createReport(payload) {
+    try {
+      const token = await getAccessTokenSilently()
+      const r = await serviceFetch('reports', '/reports', { method: 'POST', token, body: payload })
+      setReports(prev => [r, ...prev])
     } catch (err) {
-      console.error('deleteNote error', err)
+      console.error('createReport error', err)
       if (err?.status === 401) return loginWithRedirect()
-      if (err?.status === 403) return alert('Você não tem permissão para deletar notas.')
-      alert('Erro ao deletar nota.')
+      if (err?.status === 403) return alert('Você não tem permissão para criar relatórios.')
+      alert('Erro ao criar relatório.')
     }
+  }
+  async function updateReport(id, payload) {
+    try {
+      const token = await getAccessTokenSilently()
+      const updated = await serviceFetch('reports', `/reports/${id}`, { method: 'PUT', token, body: payload })
+      setReports(prev => prev.map(r => (r.id === id ? updated : r)))
+    } catch (err) { console.error(err); if (err?.status === 401) return loginWithRedirect(); alert('Erro ao atualizar relatório.') }
+  }
+  async function deleteReport(id) {
+    if (!confirm('Confirma excluir este relatório?')) return
+    try {
+      const token = await getAccessTokenSilently()
+      await serviceFetch('reports', `/reports/${id}`, { method: 'DELETE', token })
+      setReports(prev => prev.filter(r => r.id !== id))
+    } catch (err) { console.error(err); if (err?.status === 401) return loginWithRedirect(); alert('Erro ao deletar relatório.') }
+  }
+
+  // -------- Tasks handlers ----------
+  async function createTask(payload) {
+    try {
+      const token = await getAccessTokenSilently()
+      const t = await serviceFetch('tasks', '/tarefas', { method: 'POST', token, body: payload })
+      setTasks(prev => [t, ...prev])
+    } catch (err) {
+      console.error('createTask error', err)
+      if (err?.status === 401) return loginWithRedirect()
+      if (err?.status === 403) return alert('Você não tem permissão para criar tarefas.')
+      alert('Erro ao criar tarefa.')
+    }
+  }
+  async function updateTask(id, payload) {
+    try {
+      const token = await getAccessTokenSilently()
+      const updated = await serviceFetch('tasks', `/tarefas/${id}`, { method: 'PUT', token, body: payload })
+      setTasks(prev => prev.map(t => (t.id === id ? updated : t)))
+    } catch (err) { console.error(err); if (err?.status === 401) return loginWithRedirect(); alert('Erro ao atualizar tarefa.') }
+  }
+  async function deleteTask(id) {
+    if (!confirm('Confirma excluir esta tarefa?')) return
+    try {
+      const token = await getAccessTokenSilently()
+      await serviceFetch('tasks', `/tarefas/${id}`, { method: 'DELETE', token })
+      setTasks(prev => prev.filter(t => t.id !== id))
+    } catch (err) { console.error(err); if (err?.status === 401) return loginWithRedirect(); alert('Erro ao deletar tarefa.') }
   }
 
   if (isLoading) return <div className="center">Carregando...</div>
@@ -84,7 +144,7 @@ export default function App() {
   return (
     <div className="container">
       <header>
-        <h1>Notes App</h1>
+        <h1>Notes / Reports / Tasks</h1>
         <div>
           {isAuthenticated ? (
             <>
@@ -99,12 +159,27 @@ export default function App() {
 
       {isAuthenticated ? (
         <main>
-          <NoteForm onCreate={createNote} />
-          <NotesList notes={notes} loading={loadingNotes} onUpdate={updateNote} onDelete={deleteNote} />
+          <section>
+            <h2>Notes</h2>
+            <NoteForm onCreate={createNote} />
+            <NotesList notes={notes} loading={loading} onUpdate={updateNote} onDelete={deleteNote} />
+          </section>
+
+          <section>
+            <h2>Reports</h2>
+            <ReportForm onCreate={createReport} />
+            <ReportsList reports={reports} loading={loading} onUpdate={updateReport} onDelete={deleteReport} />
+          </section>
+
+          <section>
+            <h2>Tasks</h2>
+            <TaskForm onCreate={createTask} />
+            <TasksList tasks={tasks} loading={loading} onUpdate={updateTask} onDelete={deleteTask} />
+          </section>
         </main>
       ) : (
         <div className="center">
-          <p>Você precisa autenticar para ver suas notas.</p>
+          <p>Você precisa autenticar para ver os dados.</p>
         </div>
       )}
     </div>
